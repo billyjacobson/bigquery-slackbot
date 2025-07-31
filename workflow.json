@@ -1,0 +1,224 @@
+{
+  "name": "BigQuery Slack Bot",
+  "nodes": [
+    {
+      "parameters": {
+        "trigger": [
+          "app_mention"
+        ],
+        "watchWorkspace": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.slackTrigger",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        -176
+      ],
+      "id": "3abc5943-a39e-4280-b462-43c2c8d61a03",
+      "name": "Slack Trigger",
+      "webhookId": "ea1e6614-2938-4b79-9b66-88b8bcf92057",
+      "credentials": {
+        "slackApi": {
+          "id": "RbvjtnlFEC2ZtXyh",
+          "name": "Slack Bot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C09708GGZR9",
+          "mode": "list",
+          "cachedResultName": "all-billy-jacobson"
+        },
+        "text": "={{ $json.output }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        528,
+        -80
+      ],
+      "id": "eb3e655c-8a38-4564-a99f-57ea22682509",
+      "name": "Send a message",
+      "webhookId": "4f0fccda-08ab-46ac-88e1-59edf12f989f",
+      "credentials": {
+        "slackApi": {
+          "id": "RbvjtnlFEC2ZtXyh",
+          "name": "Slack Bot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.1,
+      "position": [
+        128,
+        -80
+      ],
+      "id": "baeba8e4-c6cb-4fa4-8065-6a5ccb043dfe",
+      "name": "AI Agent",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        160,
+        144
+      ],
+      "id": "315dd5eb-d878-4349-a273-8e4396a29ce0",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "bIsF0mo7kkFn74fM",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        16
+      ],
+      "id": "fb374a4b-6e71-4a14-ab69-b1ee1a41fe98",
+      "name": "When clicking ‘Execute workflow’",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "sseEndpoint": "YOUR_MCP_TOOLBOX_URL/mcp/sse"
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1,
+      "position": [
+        288,
+        144
+      ],
+      "id": "91a16b1c-c398-4e76-a571-15c072cf0199",
+      "name": "BigQuery MCP Client"
+    }
+  ],
+  "pinData": {
+    "Slack Trigger": [
+      {
+        "json": {
+          "user": "U09708G1811",
+          "type": "message",
+          "ts": "1753295293.959739",
+          "client_msg_id": "baed5b07-db21-4361-977b-ece5fbc0bd03",
+          "text": "ayo",
+          "team": "T09708G14KV",
+          "blocks": [
+            {
+              "type": "rich_text",
+              "block_id": "++91t",
+              "elements": [
+                {
+                  "type": "rich_text_section",
+                  "elements": [
+                    {
+                      "type": "text",
+                      "text": "ayo"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "channel": "C09708GGZR9",
+          "event_ts": "1753295293.959739",
+          "channel_type": "channel"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Slack Trigger": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        []
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BigQuery MCP Client": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "7ac0a208-6057-45f4-a2df-ea04376e7a2c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "039b67c59cca8c9e65751507d2b134be0c0d8995930b8b21eaf1d0d08736bb51"
+  },
+  "id": "CVlCxnHgRAnxDIVv",
+  "tags": []
+}

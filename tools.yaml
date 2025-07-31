@@ -1,0 +1,15 @@
+# This file configures the tools for the MCP Toolbox server.
+# In this case, we are enabling the built-in BigQuery tool.
+
+tools:
+  - name: "bigquery"
+    # This uses the built-in BigQuery tool from the genai-toolbox
+    # The tool is able to execute SQL queries against any dataset
+    # your service account has access to.
+    description: >
+      A tool for querying BigQuery datasets. The user will provide a full SQL query.
+      For example, to find the top 5 most expensive products from the TheLook eCommerce dataset,
+      the query would be:
+      "SELECT name, retail_price FROM `bigquery-public-data.thelook_ecommerce.products` ORDER BY retail_price DESC LIMIT 5"
+    # No specific parameters are needed here as the tool takes the query directly.
+    # The service account used by your Cloud Run service will handle authentication.
