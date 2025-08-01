@@ -1,15 +1,234 @@
-# This file configures the tools for the MCP Toolbox server.
-# In this case, we are enabling the built-in BigQuery tool.
-
+sources:
+  thelook_ecommerce:
+    kind: bigquery
+    project: billy-external
+    location: us
 tools:
-  - name: "bigquery"
-    # This uses the built-in BigQuery tool from the genai-toolbox
-    # The tool is able to execute SQL queries against any dataset
-    # your service account has access to.
-    description: >
-      A tool for querying BigQuery datasets. The user will provide a full SQL query.
-      For example, to find the top 5 most expensive products from the TheLook eCommerce dataset,
-      the query would be:
-      "SELECT name, retail_price FROM `bigquery-public-data.thelook_ecommerce.products` ORDER BY retail_price DESC LIMIT 5"
-    # No specific parameters are needed here as the tool takes the query directly.
-    # The service account used by your Cloud Run service will handle authentication.
+  daily_new_users:
+    description: "Counts the number of new user registrations per day, with configurable time range. Returns registration date and daily count of new users, ordered by most recent dates first."
+    kind: bigquery-sql
+    source: thelook_ecommerce
+    statement: |
+      SELECT
+        DATE(created_at) AS registration_date,
+        COUNT(id) AS new_users_count
+      FROM
+        `bigquery-public-data.thelook_ecommerce.users`
+      GROUP BY
+        registration_date
+      ORDER BY
+        registration_date DESC
+      LIMIT @limit_days;
+    parameters:
+      - name: limit_days
+        type: integer
+        description: "The number of recent days to retrieve new user counts for."
+        default: 30
+  monthly_sales:
+    description: "Retrieves monthly sales data including revenue, order count, and unique customers. Supports filtering by specific year, month, and order statuses (Complete, Processing, Shipped, Cancelled, Returned)."
+    kind: bigquery-sql
+    source: thelook_ecommerce
+    statement: |
+      SELECT
+        EXTRACT(MONTH FROM oi.Created_at) AS months,
+        ROUND(SUM(oi.sale_price * o.num_of_item), 2) AS revenue,
+        COUNT(DISTINCT oi.order_id) AS order_count,
+        COUNT(DISTINCT oi.user_id) AS customers_purchased
+      FROM 
+        bigquery-public-data.thelook_ecommerce.order_items oi
+      INNER JOIN 
+        `bigquery-public-data.thelook_ecommerce.orders` AS o 
+      ON 
+        oi.order_id = o.order_id
+      WHERE 
+        oi.status IN UNNEST(@statuses) AND
+        (EXTRACT(YEAR FROM oi.created_at) = @year OR @year = -1) AND
+        (EXTRACT(MONTH FROM oi.created_at) = @month OR @month = -1)
+      GROUP BY 
+        months
+      ORDER BY 
+        revenue DESC;
+    parameters:
+      - name: year
+        type: integer
+        description: The year for which to retrieve sales data.
+        default: -1
+      - name: month
+        type: integer
+        description: The month for which to retrieve sales data.
+        default: -1
+      - name: statuses
+        type: array
+        description: A list of order statuses to filter by.
+        default: ["Complete", "Processing", "Shipped"]
+        items:
+          name: status
+          type: string
+          description: The order status to filter by. Valid options are Cancelled, Complete, Processing, Shipped, Returned.
+  customer_by_country:
+    description: "Retrieves customer count by country with detailed gender breakdown showing male and female customer counts for each country. This allows you to answer questions about customer demographics by country (e.g., 'How many female customers are in the US?'). Supports filtering by order status. Results are ordered by total customer count per country."
+    kind: bigquery-sql
+    source: thelook_ecommerce
+    statement: |
+      WITH customers AS (
+        SELECT
+          DISTINCT oi.user_id,
+          SUM(CASE WHEN u.gender = 'M' THEN 1 ELSE null END) AS male,
+          SUM(CASE WHEN u.gender = 'F' THEN 1 ELSE null END) AS female,
+          u.country AS country
+          FROM 
+            bigquery-public-data.thelook_ecommerce.order_items AS oi
+          INNER JOIN 
+            bigquery-public-data.thelook_ecommerce.users AS u
+          ON 
+            oi.user_id = u.id
+          WHERE 
+            oi.status IN UNNEST(@statuses)
+          GROUP BY 
+            user_id, country
+      )
+      SELECT
+        country,
+        COUNT(DISTINCT user_id) AS customers_count,
+        COUNT(female) AS female,
+        COUNT(male) AS male
+      FROM 
+        customers
+      GROUP BY 
+        country
+      ORDER BY 
+        customers_count DESC;
+    parameters:
+      - name: statuses
+        type: array
+        description: A list of order statuses to filter by.
+        default: ["Complete", "Processing", "Shipped"]
+        items:
+          name: status
+          type: string
+          description: The order status to filter by. Valid options are Cancelled, Complete, Processing, Shipped, Returned.
+  customer_by_gender:
+    description: "Retrieves customer statistics by gender, including total revenue and quantity sold. Filters out cancelled and returned orders, and allows setting a minimum spend threshold to qualify as a customer. Results are ordered by revenue descending."
+    kind: bigquery-sql
+    source: thelook_ecommerce
+    statement: |
+      SELECT 
+        o.gender,
+        ROUND(SUM(oi.sale_price * o.num_of_item), 2) AS revenue,
+        SUM(o.num_of_item) AS quantity
+      FROM bigquery-public-data.thelook_ecommerce.order_items AS oi
+      INNER JOIN bigquery-public-data.thelook_ecommerce.orders AS o
+      ON oi.user_id = o.user_id
+      WHERE 
+        oi.status NOT IN ('Cancelled', 'Returned') AND
+        oi.sale_price > @min_spend
+      GROUP BY gender
+      ORDER BY revenue DESC;
+    parameters:
+      - name: min_spend
+        type: integer
+        description: "The minimum spend amount to consider a customer."
+        default: 0
+  customer_by_age:
+    description: "Segments customers into age groups (Kids <12, Teenagers 12-20, Young Adults 20-30, Adults 30-50, Elderly >50) and counts the number of customers in each group. Includes a minimum spend threshold filter to qualify as a customer. Results are ordered by customer count descending."
+    kind: bigquery-sql
+    source: thelook_ecommerce
+    statement: |
+      SELECT
+        CASE
+          WHEN u.age < 12 THEN 'Kids'
+          WHEN u.age BETWEEN 12 AND 20 THEN 'Teenagers'
+          WHEN u.age BETWEEN 20 AND 30 THEN 'Young Adults'
+          WHEN u.age BETWEEN 30 AND 50 THEN 'Adults'
+          WHEN u.age > 50 THEN 'Elderly'
+        END AS age_group,
+      COUNT(DISTINCT oi.user_id) AS total_customer
+      FROM 
+        bigquery-public-data.thelook_ecommerce.order_items AS oi
+      INNER JOIN 
+        bigquery-public-data.thelook_ecommerce.users AS u
+      ON 
+        oi.user_id = u.id
+      WHERE 
+        oi.sale_price > @min_spend
+      GROUP BY 
+        age_group
+      ORDER BY 
+        total_customer DESC;
+    parameters:
+      - name: min_spend
+        type: integer
+        description: "The minimum spend amount to consider a customer."
+        default: 0
+  most_profitable_brands:
+    description: "Retrieves brands ranked by profitability (revenue and quantity sold). Shows both most and least profitable brands - most profitable appear at the top, least profitable at the bottom. Excludes cancelled and returned orders. Supports filtering by specific year and month. Results are ordered by revenue descending."
+    kind: bigquery-sql
+    source: thelook_ecommerce
+    statement: |
+      SELECT 
+        p.brand AS brand,
+        ROUND(SUM(sale_price * num_of_item), 2) AS revenue,
+        SUM(num_of_item) AS quantity
+      FROM 
+        bigquery-public-data.thelook_ecommerce.order_items oi
+        INNER JOIN 
+          bigquery-public-data.thelook_ecommerce.orders o
+        ON 
+          oi.order_id = o.order_id
+        INNER JOIN 
+          bigquery-public-data.thelook_ecommerce.products p
+        ON 
+          oi.product_id = p.id
+      WHERE 
+        oi.status NOT IN ('Cancelled', 'Returned') AND
+        (EXTRACT(YEAR FROM oi.created_at) = @year OR @year = -1) AND
+        (EXTRACT(MONTH FROM oi.created_at) = @month OR @month = -1)
+      GROUP BY 
+        brand
+      ORDER BY 
+        revenue DESC;
+    parameters:
+      - name: year
+        type: integer
+        description: The year for which to retrieve sales data.
+        default: -1
+      - name: month
+        type: integer
+        description: The month for which to retrieve sales data.
+        default: -1
+  most_profitable_category:
+    description: "Retrieves product categories ranked by profitability (revenue and quantity sold). Shows both most and least profitable categories - most profitable appear at the top, least profitable at the bottom. Excludes cancelled and returned orders. Supports filtering by specific year and month. Results are ordered by revenue descending."
+    kind: bigquery-sql
+    source: thelook_ecommerce
+    statement: |
+      SELECT
+        category AS product_category,
+        ROUND(SUM(sale_price * num_of_item), 2) AS revenue,
+        SUM(num_of_item) AS quantity
+      FROM 
+        bigquery-public-data.thelook_ecommerce.order_items oi
+      INNER JOIN 
+        bigquery-public-data.thelook_ecommerce.orders o
+      ON 
+        oi.order_id = o.order_id
+      INNER JOIN 
+        bigquery-public-data.thelook_ecommerce.products p
+      ON 
+        oi.product_id = p.id
+      WHERE 
+        oi.status NOT IN ('cancelled', 'Returned') AND
+        (EXTRACT(YEAR FROM oi.created_at) = @year OR @year = -1) AND
+        (EXTRACT(MONTH FROM oi.created_at) = @month OR @month = -1)
+      GROUP BY 
+        category
+      ORDER BY 
+        revenue DESC;
+    parameters:
+      - name: year
+        type: integer
+        description: The year for which to retrieve sales data.
+        default: -1
+      - name: month
+        type: integer
+        description: The month for which to retrieve sales data.
+        default: -1

@@ -4,7 +4,7 @@ Connect your team to your marketing, sales, analytics, and other data using natu
 
 ---
 
-This project demonstrates how to set up a Slack bot with access to BigQuery data. It uses an [n8n.io](https://n8n.io/) workflow to connect Slack to an [MCP Toolbox](https://googleapis.github.io/genai-toolbox/) server, allowing for a secure connection to BigQuery for only the queries you want to allow.
+This project demonstrates how to set up a Slack bot with access to BigQuery data. It uses an [n8n](https://n8n.io/) workflow to connect Slack to an [MCP Toolbox](https://github.com/googleapis/genai-toolbox) server, allowing for a secure connection to BigQuery for only the queries you want to allow.
 
 You can run this on a hosted n8n deployment with your MCP Toolbox server on Cloud Run, or you can try it out on a local deployment.
 
@@ -21,10 +21,12 @@ This bot uses the public [`bigquery-public-data.thelook_ecommerce`](https://cons
 
 ### For a hosted deployment:
 
-*   A Google Cloud Project with the Cloud Run API enabled.
+*   A Google Cloud Project with access to enable several APIs including the Cloud Run API.
 *   [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) installed and configured.
 
 ## Workflow Architecture
+
+![Workflow Architecture](./workflow-architecture.png)
 
 1.  **Slack Trigger**: Listens for messages directed at the chatbot.
 1.  **AI Agent**: Sends the user's request to the AI model and receives a response or tools to use.
@@ -108,7 +110,7 @@ For more detailed steps, view the [deployment documentation](https://googleapis.
 1.  Create a new n8n workflow.
 1.  Import the `workflow.json` file.
 1.  Set your credentials for each node (Slack and your AI model).
-1.  In the **BigQuery MCP Client** node, replace `YOUR_MCP_TOOLBOX_URL` with `localhost:8080` for a local deployment or the **Service URL** you copied from the Cloud Run deployment.
+1.  In the **BigQuery MCP Client** node, replace `YOUR_MCP_TOOLBOX_URL` with `localhost:5000` for a local deployment or the **Service URL** you copied from the Cloud Run deployment.
 1.  Activate the workflow.
 
 ## Usage
