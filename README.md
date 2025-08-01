@@ -115,19 +115,34 @@ For more detailed steps, view the [deployment documentation](https://googleapis.
 
 ## Usage
 
-Invite the bot to a channel in your Slack workspace. Mention the bot and ask it to perform a query. For example:
+Invite the bot to a channel in your Slack workspace. Mention the bot and ask it to perform a query. Here are some examples:
 
-`@YourBotName SELECT name, retail_price FROM products ORDER BY retail_price DESC LIMIT 5`
+**Ask what it can do:**
+```
+@bigquery_chatbot what can you do?
+```
 
-The bot will use the MCP Toolbox server to execute the query against the `bigquery-public-data.thelook_ecommerce.products` table and post the results back in the channel.
+**Single query with parameters:**
+```
+@bigquery_chatbot show me sales data for January 2024
+```
+
+**Complex question requiring multiple queries:**
+```
+@bigquery_chatbot what were the least profitable categories this year and were they the same as last year?
+
+```
+
+The bot will use the MCP Toolbox server to execute the appropriate queries against the `bigquery-public-data.thelook_ecommerce` dataset and post the results back in the channel.
 
 ### Supported Queries and Parameters:
 
-| Query Name                             | Parameters                   |
-| -------------------------------------- | ---------------------------- |
-| Monthly Sales                          | `Year`, `Month`, `status`    |
-| Customers by Country                   | `country`, `gender`          |
-| Customers by Gender                    | `Status`, `Min revenue`      |
-| Customers by Age Group                 | `Age group`, `Gender`        |
-| Most/Least Profitable Brands           | `Brand_param`, `most/least`, `limit` |
-| Most/Least Profitable Product Category | `most/least`, `limit`        |
+| Query Name | Description | Parameters |
+|------------|-------------|------------|
+| **Daily New Users** | Counts the number of new user registrations per day, with configurable time range. Returns registration date and daily count of new users, ordered by most recent dates first. | `limit_days` |
+| **Monthly Sales** | Retrieves monthly sales data including revenue, order count, and unique customers. Supports filtering by specific year, month, and order statuses. | `year`, `month`, `statuses` (Complete, Processing, Shipped, Cancelled, Returned) |
+| **Customer by Country** | Retrieves customer count by country with detailed gender breakdown showing male and female customer counts for each country. This allows you to answer questions about customer demographics by country (e.g., 'How many female customers are in the US?'). | `statuses` (Complete, Processing, Shipped, Cancelled, Returned) |
+| **Customer by Gender** | Retrieves customer statistics by gender, including total revenue and quantity sold. Filters out cancelled and returned orders, and allows setting a minimum spend threshold to qualify as a customer. | `min_spend` |
+| **Customer by Age** | Segments customers into age groups (Kids <12, Teenagers 12-20, Young Adults 20-30, Adults 30-50, Elderly >50) and counts the number of customers in each group. | `min_spend` |
+| **Most Profitable Brands** | Retrieves brands ranked by profitability (revenue and quantity sold). Shows both most and least profitable brands - most profitable appear at the top, least profitable at the bottom. Excludes cancelled and returned orders. | `year`, `month` |
+| **Most Profitable Category** | Retrieves product categories ranked by profitability (revenue and quantity sold). Shows both most and least profitable categories - most profitable appear at the top, least profitable at the bottom. Excludes cancelled and returned orders. | `year`, `month` |
